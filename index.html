@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04050a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='none' stroke='%2300e5ff' stroke-width='5'/%3E%3Cpath d='M32 32 L46 18' stroke='%23ff2d78' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
+<title>CORE // OBD</title>
+<meta name="description" content="Bluetooth OBD-II live telemetry dashboard for your car. Connect a BLE dongle, switch between Classic and Night Runners skins.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CORE // OBD">
+<meta property="og:title" content="CORE // OBD — Bluetooth telemetry dashboard">
+<meta property="og:description" content="Live gauges, fault codes and telemetry straight from your car's OBD-II port. Two skins: Classic and Night Runners.">
+<meta property="og:url" content="https://core.askaconsult.com/">
+<meta property="og:image" content="https://core.askaconsult.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="CORE // OBD neon telemetry dashboard preview">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CORE // OBD — Bluetooth telemetry dashboard">
+<meta name="twitter:description" content="Live gauges, fault codes and telemetry straight from your car's OBD-II port. Two skins: Classic and Night Runners.">
+<meta name="twitter:image" content="https://core.askaconsult.com/og-image.png">
+<style>
+/* ============ theme variables ============ */
+body.skin-classic{
+  --bg:#0a0c10; --bg2:#0a0c10;
+  --panel:#12151c; --panel2:#171b25;
+  --ink:#f1f5f9; --dim:#8b93a7; --faint:#5b6373;
+  --acc:#22d3ee; --acc2:#f59e0b; --red:#e5484d; --green:#34d399; --amber:#f59e0b;
+  --line:#20242f; --tileline:#20242f;
+  --gauge-track:#1d2230;
+}
+body.skin-ff{
+  --bg:#04050a; --bg2:#0c1230;
+  --panel:#0b0f1e; --panel2:#0b0f1e;
+  --ink:#f4f7ff; --dim:#8b93a7; --faint:#4a5163;
+  --acc:#00e5ff; --acc2:#ff2d78; --red:#ff3131; --green:#a6ff00; --amber:#ff9e00;
+  --pink:#ff2d78; --lime:#a6ff00; --cyan:#00e5ff;
+  --line:rgba(0,229,255,.35); --tileline:rgba(0,229,255,.35);
+  --gauge-track:#0d1220;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  background:radial-gradient(1200px 620px at 50% -12%, var(--bg2) 0%, var(--bg) 62%), var(--bg);
+  color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  min-height:100vh; padding:18px; font-variant-numeric:tabular-nums; overflow-x:hidden;
+}
+body.skin-classic .ff-only{display:none !important}
+/* ff ambience */
+body.skin-ff #bgfx{position:fixed; inset:-60%; pointer-events:none; z-index:0; opacity:.55;
+  background:repeating-linear-gradient(115deg, transparent 0 90px, rgba(0,229,255,.055) 90px 92px,
+    transparent 92px 190px, rgba(255,45,120,.05) 190px 192px);
+  animation:drift 16s linear infinite;}
+@keyframes drift{to{transform:translateX(380px)}}
+body.skin-ff::after{content:""; position:fixed; inset:0; pointer-events:none; z-index:30; opacity:.5;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 1px, transparent 1px 3px);}
+body.skin-ff .tokyo{position:fixed; right:12px; top:50%; transform:translateY(-50%); z-index:1;
+  writing-mode:vertical-rl; font-size:46px; font-weight:900; letter-spacing:10px;
+  color:var(--pink); text-shadow:0 0 12px var(--pink), 0 0 44px var(--pink); opacity:.75;}
+@media(max-width:920px){body.skin-ff .tokyo{display:none}}
+/* shift flash */
+#flash{position:fixed; inset:0; pointer-events:none; opacity:0; z-index:40; transition:opacity .1s}
+body.skin-classic #flash{box-shadow:inset 0 0 120px 40px rgba(229,72,77,.55)}
+body.skin-ff #flash{box-shadow:inset 0 0 140px 50px rgba(255,45,120,.6)}
+body.shift #flash{opacity:1; animation:blink .4s steps(2) infinite}
+body.skin-ff #shiftTag{position:fixed; top:34%; left:50%; z-index:41; pointer-events:none; opacity:0;
+  transform:translate(-50%,-50%) skewX(-12deg);
+  font:italic 900 110px system-ui; letter-spacing:6px; color:#fff;
+  text-shadow:0 0 18px var(--pink), 0 0 70px var(--pink), 0 0 140px var(--pink);}
+body.shift.skin-ff #shiftTag{opacity:1; animation:blink .4s steps(2) infinite}
+@keyframes blink{50%{opacity:.2}}
+/* NOS purge wash */
+body.skin-ff #purge{position:fixed; inset:0; pointer-events:none; opacity:0; z-index:42;
+  background:radial-gradient(700px 340px at 50% 62%, rgba(0,229,255,.6), rgba(0,229,255,0) 70%);}
+body.skin-ff #purge.go{animation:purge 1.1s ease-out}
+@keyframes purge{0%{opacity:0}10%{opacity:1}100%{opacity:0}}
+
+/* ============ connect screen ============ */
+#screen-connect{position:relative; z-index:1; max-width:560px; margin:8vh auto 0; text-align:center; padding:0 8px}
+.conn-brand{font:italic 900 54px/1 system-ui; letter-spacing:4px;
+  background:linear-gradient(180deg,#fff 20%,#9fb3c8 45%,#fff 55%,#5b6b82 80%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 0 18px rgba(0,229,255,.35));}
+.conn-sub{margin-top:10px; font:700 13px system-ui; letter-spacing:6px; color:var(--acc);
+  text-shadow:0 0 12px var(--acc);}
+.conn-sub em{font-style:normal; color:var(--acc2); text-shadow:0 0 12px var(--acc2)}
+.conn-card{margin-top:28px; background:var(--panel); border:1px solid var(--line);
+  border-radius:16px; padding:26px 22px; text-align:left}
+body.skin-ff .conn-card{border-radius:0;
+  clip-path:polygon(20px 0,100% 0,100% calc(100% - 20px),calc(100% - 20px) 100%,0 100%,0 20px);}
+.conn-card h2{font-size:14px; letter-spacing:3px; text-transform:uppercase; color:var(--dim); margin-bottom:14px}
+.bigbtn{display:block; width:100%; margin:10px 0; padding:16px; font:800 17px system-ui; letter-spacing:2px;
+  cursor:pointer; color:#04121a; background:var(--acc); border:none; border-radius:12px;
+  box-shadow:0 0 24px color-mix(in srgb, var(--acc) 55%, transparent);}
+body.skin-ff .bigbtn{border-radius:0; font-style:italic;
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);}
+.bigbtn.ghost{background:transparent; color:var(--ink); border:1px solid var(--line); box-shadow:none}
+.bigbtn:disabled{opacity:.45; cursor:wait}
+#connStatus{margin-top:12px; font-size:13px; color:var(--dim); min-height:20px}
+#connStatus.err{color:var(--red)}
+.conn-needs{margin-top:18px; font-size:12.5px; line-height:1.7; color:var(--faint); text-align:left}
+.conn-needs b{color:var(--dim)}
+.unsupported{background:rgba(229,72,77,.1); border:1px solid rgba(229,72,77,.5); border-radius:10px;
+  padding:12px 14px; font-size:13px; color:#f1a3a5; margin-top:14px; text-align:left; line-height:1.6}
+
+/* ============ dashboard ============ */
+#screen-dash{position:relative; z-index:1}
+header{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px}
+.brand{font-size:22px; font-weight:800; letter-spacing:2px}
+body.skin-ff .brand .chrome{display:inline-block; transform:skewX(-8deg);
+  font:italic 900 30px/1 system-ui; letter-spacing:3px;
+  background:linear-gradient(180deg,#fff 18%,#9fb3c8 44%,#fff 56%,#5b6b82 82%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 0 14px rgba(0,229,255,.35));}
+.brand .bsub{font-size:14px; color:var(--dim); font-weight:400; letter-spacing:1px}
+body.skin-ff .brand .bsub{display:block; margin-top:6px; font:italic 700 12px system-ui; letter-spacing:5px;
+  color:var(--pink); text-shadow:0 0 10px var(--pink);}
+body.skin-ff .brand .bsub em{font-style:normal; color:var(--cyan); text-shadow:0 0 10px var(--cyan);}
+.hstats{display:flex; gap:10px; align-items:stretch; flex-wrap:wrap}
+.hstat{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  padding:8px 14px; text-align:center; min-width:84px}
+body.skin-ff .hstat{border-radius:0;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.hstat label{display:block; font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:var(--faint)}
+.hstat b{font-size:18px}
+body.skin-ff .hstat b{color:#fff; text-shadow:0 0 10px rgba(0,229,255,.7)}
+.dot{display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--faint); margin-right:6px}
+.dot.live{background:var(--green); box-shadow:0 0 8px var(--green)}
+.dot.demo{background:var(--amber); box-shadow:0 0 8px var(--amber)}
+.seg{display:flex; align-items:stretch}
+.seg button{background:var(--panel2); color:var(--dim); border:1px solid var(--line);
+  padding:8px 12px; font-size:12.5px; font-weight:700; cursor:pointer;}
+.seg button:first-child{border-radius:8px 0 0 8px}
+.seg button:last-child{border-radius:0 8px 8px 0; border-left:none}
+body.skin-ff .seg button{border-radius:0 !important}
+.seg button.on{color:#04121a; background:var(--acc); box-shadow:0 0 14px color-mix(in srgb, var(--acc) 60%, transparent)}
+.toggles{display:flex; align-items:center; gap:6px}
+.toggles button{background:var(--panel2); color:var(--dim); border:1px solid var(--line);
+  border-radius:8px; padding:8px 11px; font-size:12.5px; font-weight:700; cursor:pointer;}
+body.skin-ff .toggles button{border-radius:0}
+.toggles button.on{color:var(--ink); border-color:var(--acc)}
+#discBtn{border-color:rgba(229,72,77,.5) !important; color:#f1a3a5 !important}
+main{max-width:1180px; margin:0 auto}
+.gauges{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px}
+@media (max-width:760px){.gauges{grid-template-columns:1fr}}
+.gauge{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:10px}
+body.skin-ff .gauge{border-radius:0; background:linear-gradient(165deg,#0a0e1c,#060910);
+  clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);}
+.gauge canvas{width:100%; height:auto; display:block}
+body.skin-ff .nos{width:100%; margin-bottom:16px; cursor:pointer; border:1px solid rgba(0,229,255,.7);
+  background:linear-gradient(180deg, rgba(0,229,255,.16), rgba(0,229,255,.05)); color:var(--ink);
+  padding:12px; clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+  box-shadow:0 0 24px rgba(0,229,255,.35), inset 0 0 24px rgba(0,229,255,.12);}
+body.skin-ff .nos:active{transform:scale(.995)}
+body.skin-ff .nos-main{display:block; font:italic 900 30px system-ui; letter-spacing:10px; color:#eafcff;
+  text-shadow:0 0 14px var(--cyan), 0 0 44px var(--cyan);}
+body.skin-ff .nos-sub{display:block; margin-top:2px; font-size:11px; letter-spacing:3px; color:var(--dim)}
+.tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-bottom:16px}
+.tile{background:var(--panel); border:1px solid var(--tileline); border-radius:12px; padding:12px 14px}
+body.skin-ff .tile{border-radius:0; background:linear-gradient(160deg,#0b0f1e,#070a14);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+body.skin-ff .tile:nth-child(3n){border-color:rgba(255,45,120,.45)}
+body.skin-ff .tile:nth-child(3n+1){border-color:rgba(166,255,0,.32)}
+.tile label{font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:var(--faint); display:block}
+body.skin-ff .tile .kana{display:block; font-size:11px; letter-spacing:3px; color:var(--pink); opacity:.85; margin-top:2px;
+  text-shadow:0 0 8px rgba(255,45,120,.6)}
+.tile .v{font-size:30px; font-weight:700; margin-top:4px}
+body.skin-ff .tile .v{font-style:italic; font-weight:800; color:#fff; text-shadow:0 0 12px rgba(0,229,255,.8)}
+body.skin-ff .tile:nth-child(3n) .v{text-shadow:0 0 12px rgba(255,45,120,.8)}
+body.skin-ff .tile:nth-child(3n+1) .v{text-shadow:0 0 12px rgba(166,255,0,.7)}
+.tile .u{font-size:13px; color:var(--dim); font-weight:400; margin-left:4px}
+.tile.stale{opacity:.35}
+body.skin-ff .tile.stale{opacity:.3}
+.tile.stale .v{text-shadow:none !important}
+.dtc{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px}
+body.skin-ff .dtc{border-radius:0; border-color:rgba(255,158,0,.4); background:linear-gradient(165deg,#0a0e1c,#060910);
+  clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);}
+.dtc-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px}
+.dtc-head h2{font-size:15px; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim)}
+body.skin-ff .dtc-head h2{font-size:14px; letter-spacing:4px; font-style:italic; color:var(--amber);
+  text-shadow:0 0 10px rgba(255,158,0,.7)}
+.dtc-head button{background:var(--panel2); color:var(--ink); border:1px solid var(--line);
+  border-radius:8px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; margin-left:8px}
+body.skin-ff .dtc-head button{border-radius:0; border-color:rgba(0,229,255,.4)}
+.dtc-head button.danger{border-color:rgba(229,72,77,.55); color:#f1a3a5}
+.dtc-list .code{display:flex; gap:12px; align-items:baseline; padding:8px 4px; border-top:1px solid var(--line)}
+.dtc-list .code b{color:var(--amber); font-family:ui-monospace,monospace; font-size:15px}
+body.skin-ff .dtc-list .code b{text-shadow:0 0 10px rgba(255,158,0,.7)}
+.dtc-list .code span{color:var(--dim); font-size:14px}
+.muted{color:var(--faint); font-size:14px; line-height:1.6}
+footer{max-width:1180px; margin:18px auto 0; color:var(--faint); font-size:11px; text-align:center; letter-spacing:1px; position:relative; z-index:1}
+body.skin-ff footer .ff{color:var(--pink); text-shadow:0 0 8px rgba(255,45,120,.6)}
+[hidden]{display:none !important}
+</style>
+</head>
+<body class="skin-classic">
+<div id="bgfx" class="ff-only"></div>
+<div id="flash"></div>
+<div id="shiftTag" class="ff-only">SHIFT</div>
+<div id="purge" class="ff-only"></div>
+<div class="tokyo ff-only" aria-hidden="true">東京</div>
+
+<!-- ================= CONNECT ================= -->
+<section id="screen-connect">
+  <div class="conn-brand">CORE</div>
+  <div class="conn-sub">OBD-II DASHBOARD <em>// bluetooth</em></div>
+  <div class="conn-card">
+    <h2>Connect to your car</h2>
+    <button id="bleBtn" class="bigbtn">Connect Bluetooth dongle</button>
+    <button id="demoBtn" class="bigbtn ghost">Try demo mode — no dongle</button>
+    <div id="connStatus"></div>
+    <div id="bleUnsupported" class="unsupported" hidden></div>
+    <div class="conn-needs">
+      <b>Needs:</b> a <b>BLE</b> OBD-II dongle (e.g. Veepeak BLE+, Vgate iCar Pro BLE).
+      Classic Bluetooth ELM327 dongles can't talk to browsers.<br>
+      <b>Works in:</b> Chrome / Edge on Android, Windows, macOS.<br>
+      <b>iPhone:</b> Safari has no Bluetooth API — open this page in the free
+      <b>WebBLE</b> app instead, or use demo mode.<br>
+      Ignition must be ON (engine can stay off for most readings).
+    </div>
+  </div>
+</section>
+
+<!-- ================= DASHBOARD ================= -->
+<section id="screen-dash" hidden>
+<header>
+  <div class="brand"><span class="chrome">CORE</span> <span class="bsub">// obd <em class="ff-only">night runners</em></span></div>
+  <div class="hstats">
+    <div class="hstat"><label>link</label><span id="linkDot" class="dot"></span><b id="linkText" style="font-size:14px">…</b></div>
+    <div class="hstat"><label>trip</label><b id="trip">0:00</b></div>
+    <div class="hstat"><label>max rpm</label><b id="maxrpm">—</b></div>
+    <div class="hstat"><label>max speed</label><b id="maxspd">—</b></div>
+    <div class="seg" title="Switch skin">
+      <button id="skinClassic">Classic</button><button id="skinFf">Night Runners</button>
+    </div>
+    <div class="toggles">
+      <button id="uSpeed" title="toggle speed units">mph</button>
+      <button id="uTemp" title="toggle temperature units">°F</button>
+      <button id="discBtn" title="disconnect">✕</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="gauges">
+    <div class="gauge"><canvas id="gRpm" width="560" height="400"></canvas></div>
+    <div class="gauge"><canvas id="gSpd" width="560" height="400"></canvas></div>
+  </section>
+
+  <button id="nosBtn" class="nos ff-only" title="Screen effect only — does nothing to the car">
+    <span class="nos-main">NOS</span>
+    <span class="nos-sub">PURGE // ニトロ — screen effect only</span>
+  </button>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="dtc">
+    <div class="dtc-head">
+      <h2>Fault codes</h2>
+      <div>
+        <button id="readDtc">Read codes</button>
+        <button id="clearDtc" class="danger">Clear codes</button>
+      </div>
+    </div>
+    <div id="dtcList" class="dtc-list"><p class="muted">No codes read yet.</p></div>
+  </section>
+</main>
+
+<footer><span class="ff ff-only">night runners skin</span><span class="ff-only"> · </span>read-only diagnostics · core.askaconsult.com</footer>
+</section>
+
+<script>
+'use strict';
+/* ================= utils / units ================= */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const units = {
+  speed: localStorage.getItem('uSpeed') || 'mph',
+  temp:  localStorage.getItem('uTemp')  || 'F'
+};
+const toSpeed = kph => units.speed === 'mph' ? kph * 0.621371 : kph;
+const speedUnit = () => units.speed === 'mph' ? 'mph' : 'km/h';
+const toTemp = c => units.temp === 'F' ? c * 9/5 + 32 : c;
+const tempUnit = () => units.temp === 'F' ? '°F' : '°C';
+
+/* ================= skins ================= */
+let skin = localStorage.getItem('skin') || 'classic';
+const SKINS = {
+  classic: {
+    redline: 6500,
+    rpm:  {c0:'#22d3ee', c1:'#f59e0b', glow:'#22d3ee'},
+    spd:  {c0:'#22d3ee', c1:'#f59e0b', glow:'#22d3ee'},
+    track:'#1d2230', red:'#e5484d', tick:'#5b6373', tickLabel:'#8b93a7',
+    needle:'#f8fafc', digital:'#f8fafc', sub:'#8b93a7',
+    digitalFont:'700 62px system-ui', labelFont:'24px system-ui',
+    halo:false, kana:false, italicTicks:false
+  },
+  ff: {
+    redline: 6500,
+    rpm:  {c0:'#00e5ff', c1:'#ff2d78', glow:'#00e5ff'},
+    spd:  {c0:'#a6ff00', c1:'#00e5ff', glow:'#a6ff00'},
+    track:'#0d1220', red:'#ff2d78', tick:'#3a4358', tickLabel:'#7d8aa5',
+    needle:'#f8fafc', digital:'#ffffff', sub:'#8b93a7',
+    digitalFont:'italic 900 62px system-ui', labelFont:'italic 700 22px system-ui',
+    halo:true, kana:true, italicTicks:true
+  }
+};
+function setSkin(name){
+  skin = name;
+  localStorage.setItem('skin', name);
+  document.body.classList.remove('skin-classic','skin-ff');
+  document.body.classList.add('skin-'+name);
+  $('skinClassic').classList.toggle('on', name==='classic');
+  $('skinFf').classList.toggle('on', name==='ff');
+  buildTiles();
+  render();
+}
+$('skinClassic').onclick = () => setSkin('classic');
+$('skinFf').onclick = () => setSkin('ff');
+
+/* ================= tiles ================= */
+const TILES = [
+  {key:'coolant_temp', label:'Coolant',  kana:'水温',       fmt:v=>Math.round(toTemp(v)), unit:()=>tempUnit()},
+  {key:'intake_temp',  label:'Intake',   kana:'吸気',       fmt:v=>Math.round(toTemp(v)), unit:()=>tempUnit()},
+  {key:'throttle_pos', label:'Throttle', kana:'スロットル', fmt:v=>Math.round(v),         unit:()=>'%'},
+  {key:'engine_load',  label:'Eng load', kana:'負荷',       fmt:v=>Math.round(v),         unit:()=>'%'},
+  {key:'fuel_level',   label:'Fuel',     kana:'燃料',       fmt:v=>Math.round(v),         unit:()=>'%'},
+  {key:'maf',          label:'Airflow',  kana:'エアフロー', fmt:v=>v.toFixed(1),          unit:()=>'g/s'},
+  {key:'voltage',      label:'Voltage',  kana:'電圧',       fmt:v=>v.toFixed(1),          unit:()=>'V'},
+  {key:'timing',       label:'Timing',   kana:'タイミング', fmt:v=>Math.round(v),         unit:()=>'°'},
+  {key:'fuel_press',   label:'Fuel rail',kana:'燃圧',       fmt:v=>Math.round(v),         unit:()=>'kPa'},
+  {key:'run_time',     label:'Run time', kana:'時間',       fmt:v=>Math.floor(v/60)+':'+String(Math.floor(v%60)).padStart(2,'0'), unit:()=>'min'},
+];
+function buildTiles(){
+  const th = SKINS[skin], el = $('tiles');
+  el.innerHTML = '';
+  TILES.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'tile stale'; d.id = 'tile-' + t.key;
+    d.innerHTML = `<label>${t.label}${th.kana?`<span class="kana">${t.kana}</span>`:''}</label>` +
+                  `<div><span class="v">—</span><span class="u"></span></div>`;
+    el.appendChild(d);
+  });
+}
+
+/* ================= gauges ================= */
+function drawGauge(id, gcfg, value){
+  const th = SKINS[skin];
+  const cv = $(id), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+  const cx = W/2, cy = H*0.58, R = Math.min(W*0.44, H*0.52);
+  const a0 = Math.PI*0.75, a1 = Math.PI*2.25;
+  const frac = v => Math.max(0, Math.min(1, (v - gcfg.min)/(gcfg.max - gcfg.min)));
+  const ang = f => a0 + f*(a1 - a0);
+  const purging = document.body.classList.contains('purging');
+  if (th.halo){
+    ctx.save();
+    ctx.shadowColor = gcfg.glow; ctx.shadowBlur = purging ? 36 : 20;
+    ctx.lineWidth = 30; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0,229,255,0.10)';
+    ctx.beginPath(); ctx.arc(cx, cy, R, a0, a1); ctx.stroke();
+    ctx.restore();
+  }
+  // track
+  ctx.lineWidth = 26; ctx.lineCap = 'round';
+  ctx.strokeStyle = th.track;
+  ctx.beginPath(); ctx.arc(cx, cy, R, a0, a1); ctx.stroke();
+  // redline zone
+  if (gcfg.redline < gcfg.max){
+    ctx.save();
+    if (th.halo){ ctx.shadowColor = th.red; ctx.shadowBlur = 16; }
+    ctx.strokeStyle = th.red; ctx.lineWidth = 26;
+    ctx.beginPath(); ctx.arc(cx, cy, R, ang(frac(gcfg.redline)), a1); ctx.stroke();
+    ctx.restore();
+  }
+  // value arc
+  const f = value == null ? 0 : frac(value);
+  ctx.save();
+  if (th.halo){ ctx.shadowColor = gcfg.glow; ctx.shadowBlur = purging ? 30 : 18; }
+  const gr = ctx.createLinearGradient(cx - R, 0, cx + R, 0);
+  gr.addColorStop(0, gcfg.c0); gr.addColorStop(1, gcfg.c1);
+  ctx.strokeStyle = gr; ctx.lineWidth = 26;
+  ctx.beginPath(); ctx.arc(cx, cy, R, a0, ang(f)); ctx.stroke();
+  ctx.restore();
+  // ticks + labels
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i <= gcfg.major; i++){
+    const ff = i / gcfg.major, a = ang(ff);
+    const abs = gcfg.min + ff * (gcfg.max - gcfg.min);
+    const inRed = abs >= gcfg.redline;
+    ctx.strokeStyle = inRed ? th.red : th.tick; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a)*(R-36), cy + Math.sin(a)*(R-36));
+    ctx.lineTo(cx + Math.cos(a)*(R-50), cy + Math.sin(a)*(R-50));
+    ctx.stroke();
+    ctx.fillStyle = inRed ? th.red : th.tickLabel;
+    ctx.font = (th.italicTicks ? 'italic 700 ' : '') + '21px system-ui';
+    ctx.fillText(Math.round(abs/gcfg.step)*gcfg.step,
+                cx + Math.cos(a)*(R-78), cy + Math.sin(a)*(R-78));
+  }
+  // needle
+  const na = ang(f);
+  ctx.save();
+  if (th.halo){ ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 12; }
+  ctx.strokeStyle = th.needle; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - Math.cos(na)*26, cy - Math.sin(na)*26);
+  ctx.lineTo(cx + Math.cos(na)*(R-58), cy + Math.sin(na)*(R-58));
+  ctx.stroke();
+  ctx.fillStyle = th.needle;
+  ctx.beginPath(); ctx.arc(cx, cy, 15, 0, 7); ctx.fill();
+  ctx.restore();
+  // digital readout
+  ctx.save();
+  if (th.halo){ ctx.shadowColor = gcfg.glow; ctx.shadowBlur = 18; }
+  ctx.fillStyle = th.digital; ctx.font = th.digitalFont;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(gcfg.fmt(value), cx, cy + 96);
+  ctx.restore();
+  ctx.fillStyle = th.sub; ctx.font = th.labelFont;
+  ctx.fillText(gcfg.label + ' · ' + gcfg.unit(), cx, cy + 138);
+  if (th.kana){
+    ctx.fillStyle = gcfg.glow; ctx.font = '16px system-ui';
+    ctx.fillText(gcfg.kana, cx, cy + 162);
+  }
+}
+const rpmCfg = () => Object.assign({min:0, max:8000, redline:SKINS[skin].redline, major:8, step:1000,
+  label:'ENGINE', kana:'回転', unit:()=>'rpm',
+  fmt:v => v == null ? '—' : Math.round(v).toLocaleString('en-US')}, SKINS[skin].rpm);
+const spdCfg = () => Object.assign({min:0, max:140, redline:9999, major:7, step:20,
+  label:'SPEED', kana:'速度', unit:speedUnit,
+  fmt:v => v == null ? '—' : Math.round(toSpeed(v))}, SKINS[skin].spd);
+
+/* ================= live state + render ================= */
+const state = {
+  mode: null, // 'ble' | 'demo'
+  values: {}, updated: {},
+  session: {max_rpm:0, max_speed_kph:0, start:Date.now()/1000},
+  dtc: []
+};
+TILES.forEach(t => { state.values[t.key] = null; state.updated[t.key] = 0; });
+function noteValue(key, value){
+  state.values[key] = value;
+  state.updated[key] = Date.now()/1000;
+  if (key === 'rpm') state.session.max_rpm = Math.max(state.session.max_rpm, value);
+  if (key === 'speed') state.session.max_speed_kph = Math.max(state.session.max_speed_kph, value);
+}
+function render(){
+  const now = Date.now()/1000, vals = state.values;
+  const dot = $('linkDot'), lt = $('linkText');
+  if (state.mode === 'ble'){ dot.className = 'dot live'; lt.textContent = obd.connected ? 'live' : '…'; }
+  else if (state.mode === 'demo'){ dot.className = 'dot demo'; lt.textContent = 'demo'; }
+  else { dot.className = 'dot'; lt.textContent = '—'; }
+  drawGauge('gRpm', rpmCfg(), vals.rpm);
+  drawGauge('gSpd', spdCfg(), vals.speed);
+  document.body.classList.toggle('shift', vals.rpm != null && vals.rpm > 6200);
+  TILES.forEach(t => {
+    const el = $('tile-' + t.key);
+    if (!el) return;
+    const v = vals[t.key], age = now - (state.updated[t.key] || 0);
+    const stale = v == null || age > 4;
+    el.classList.toggle('stale', stale);
+    el.querySelector('.v').textContent = stale ? '—' : t.fmt(v);
+    el.querySelector('.u').textContent = t.unit();
+  });
+  const trip = Math.floor(now - state.session.start);
+  $('trip').textContent = Math.floor(trip/60) + ':' + String(trip%60).padStart(2,'0');
+  $('maxrpm').textContent = state.session.max_rpm > 0 ? Math.round(state.session.max_rpm).toLocaleString('en-US') : '—';
+  $('maxspd').textContent = state.session.max_speed_kph > 0 ? Math.round(toSpeed(state.session.max_speed_kph)) + ' ' + speedUnit() : '—';
+}
+/* ================= demo simulator ================= */
+let demoTimer = null;
+function startDemo(){
+  state.mode = 'demo';
+  state.session = {max_rpm:0, max_speed_kph:0, start:Date.now()/1000};
+  showDash();
+  setStatus('Demo mode — simulated telemetry.');
+  const t0 = Date.now()/1000;
+  demoTimer = setInterval(() => {
+    const t = Date.now()/1000 - t0, cycle = t % 30;
+    let rpm_t, spd_t;
+    if (cycle < 8){ rpm_t = 750; spd_t = 0; }
+    else if (cycle < 16){ const k = (cycle-8)/8; rpm_t = 750 + 5200*k; spd_t = 130*k; }
+    else if (cycle < 24){ rpm_t = 2400; spd_t = 130; }
+    else { const k = (cycle-24)/6; rpm_t = 2400 - 1600*k; spd_t = Math.max(0, 130 - 130*k); }
+    const nz = a => (Math.random()*2-1)*a;
+    noteValue('rpm', Math.max(0, rpm_t + nz(60)));
+    noteValue('speed', Math.max(0, spd_t + nz(1)));
+    noteValue('coolant_temp', Math.min(93, 18 + t*1.2));
+    noteValue('throttle_pos', Math.min(100, Math.max(0, (rpm_t-750)/55 + nz(2))));
+    noteValue('engine_load', Math.min(100, Math.max(8, (rpm_t-700)/60 + nz(3))));
+    noteValue('fuel_level', Math.max(5, 62 - t*0.002));
+    noteValue('intake_temp', 28 + nz(1));
+    noteValue('maf', Math.max(0, 3 + rpm_t/900 + nz(0.4)));
+    noteValue('voltage', 13.9 + nz(0.15));
+    noteValue('timing', 12 + nz(4));
+    noteValue('fuel_press', 340 + nz(8));
+    noteValue('run_time', t);
+  }, 400);
+}
+function stopDemo(){ if (demoTimer){ clearInterval(demoTimer); demoTimer = null; } }
+
+/* ================= OBD-II over Web Bluetooth (ELM327) ================= */
+const UART_CANDIDATES = [
+  {s:'0000ffe0-0000-1000-8000-00805f9a34fb', w:'0000ffe1-0000-1000-8000-00805f9a34fb', n:'0000ffe1-0000-1000-8000-00805f9a34fb'},
+  {s:'0000fff0-0000-1000-8000-00805f9a34fb', w:'0000fff2-0000-1000-8000-00805f9a34fb', n:'0000fff1-0000-1000-8000-00805f9a34fb'},
+  {s:'6e400001-b5a3-f393-e0a9-e50e24dcca9e', w:'6e400002-b5a3-f393-e0a9-e50e24dcca9e', n:'6e400003-b5a3-f393-e0a9-e50e24dcca9e'},
+];
+const PIDS = [
+  {key:'rpm',          cmd:'010C', parse:h=>((hx(h,4)*256+hx(h,6))/4)},
+  {key:'speed',        cmd:'010D', parse:h=>hx(h,4)},
+  {key:'coolant_temp', cmd:'0105', parse:h=>hx(h,4)-40},
+  {key:'engine_load',  cmd:'0104', parse:h=>hx(h,4)*100/255},
+  {key:'throttle_pos', cmd:'0111', parse:h=>hx(h,4)*100/255},
+  {key:'intake_temp',  cmd:'010F', parse:h=>hx(h,4)-40},
+  {key:'maf',          cmd:'0110', parse:h=>(hx(h,4)*256+hx(h,6))/100},
+  {key:'timing',       cmd:'010E', parse:h=>hx(h,4)/2-64},
+  {key:'fuel_press',   cmd:'010A', parse:h=>hx(h,4)*3},
+  {key:'fuel_level',   cmd:'012F', parse:h=>hx(h,4)*100/255},
+  {key:'run_time',     cmd:'011F', parse:h=>hx(h,4)*256+hx(h,6)},
+];
+function hx(h, i){ return parseInt(h.substr(i,2), 16); }
+function decodeDTC(b1, b2){
+  const t = 'PCBU'[(b1 & 0xC0) >> 6];
+  const H = n => n.toString(16).toUpperCase();
+  return t + H((b1 & 0x30) >> 4) + H(b1 & 0x0F) + H((b2 & 0xF0) >> 4) + H(b2 & 0x0F);
+}
+const obd = {
+  device:null, writeChar:null, buf:'', queue:[], busy:false, pending:null,
+  connected:false, unsupported:new Set(), stopPoll:false,
+  async connect(){
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices:true,
+      optionalServices: UART_CANDIDATES.map(c=>c.s)
+    });
+    this.device = device;
+    device.addEventListener('gattserverdisconnected', () => this.onDrop());
+    const server = await device.gatt.connect();
+    const {write, notify} = await this.findUart(server);
+    this.writeChar = write;
+    await notify.startNotifications();
+    notify.addEventListener('characteristicvaluechanged', e => this.onData(e));
+    await this.init();
+    this.connected = true;
+  },
+  async findUart(server){
+    for (const c of UART_CANDIDATES){
+      try{
+        const svc = await server.getPrimaryService(c.s);
+        const w = await svc.getCharacteristic(c.w);
+        const n = c.n === c.w ? w : await svc.getCharacteristic(c.n);
+        return {write:w, notify:n};
+      }catch(e){/* try next */}
+    }
+    const svcs = await server.getPrimaryServices();
+    for (const svc of svcs){
+      try{
+        const chars = await svc.getCharacteristics();
+        const n = chars.find(ch => ch.properties.notify || ch.properties.indicate);
+        const w = chars.find(ch => ch.properties.writeWithoutResponse || ch.properties.write);
+        if (n && w) return {write:w, notify:n};
+      }catch(e){/* next service */}
+    }
+    throw new Error('No serial port found on this device — is it a BLE OBD dongle?');
+  },
+  onData(e){
+    this.buf += new TextDecoder().decode(e.target.value);
+    if (this.buf.includes('>') && this.pending){
+      const p = this.pending; this.pending = null;
+      clearTimeout(p.timer);
+      const raw = this.buf; this.buf = '';
+      this.busy = false;
+      p.resolve(this.clean(raw, p.cmd));
+      this.pump();
+    }
+  },
+  clean(raw, sent){
+    const lines = raw.replace(/>/g,'').split(/[\r\n]+/)
+      .map(l => l.trim().toUpperCase())
+      .filter(l => l && l !== 'OK' && l !== sent && l !== '?');
+    const err = lines.find(l => /NO DATA|UNABLE TO CONNECT|STOPPED|ERROR|BUFFER FULL|BUS BUSY/.test(l));
+    if (err) throw new Error('ECU: ' + err);
+    return lines.join('');
+  },
+  cmd(str, timeoutMs){
+    return new Promise((resolve, reject) => {
+      this.queue.push({str, resolve, reject, timeoutMs: timeoutMs || 4000});
+      this.pump();
+    });
+  },
+  async pump(){
+    if (this.busy || !this.queue.length || !this.writeChar) return;
+    this.busy = true;
+    const job = this.queue.shift();
+    this.buf = '';
+    try{
+      const data = new TextEncoder().encode(job.str + '\r');
+      if (this.writeChar.properties.writeWithoutResponse)
+        await this.writeChar.writeValueWithoutResponse(data);
+      else
+        await this.writeChar.writeValueWithResponse(data);
+      const timer = setTimeout(() => {
+        this.pending = null; this.busy = false;
+        job.reject(new Error('timeout waiting for dongle'));
+        this.pump();
+      }, job.timeoutMs);
+      this.pending = {resolve: job.resolve, timer, cmd: job.str};
+    }catch(e){
+      this.busy = false;
+      job.reject(e);
+      this.pump();
+    }
+  },
+  async init(){
+    setStatus('Resetting adapter…');
+    await this.cmd('ATZ', 7000);
+    setStatus('Configuring…');
+    for (const c of ['ATE0','ATL0','ATS0','ATH0','ATSP0']) await this.cmd(c);
+    setStatus('Talking to the car… (ignition must be ON)');
+    const r = await this.cmd('0100', 9000);
+    if (!r.startsWith('4100')) throw new Error('ECU not answering — is the ignition on?');
+    try{ const v = await this.cmd('ATRV'); const vv = parseFloat(v); if (vv > 0) noteValue('voltage', vv); }catch(e){}
+  },
+  async pollLoop(){
+    this.stopPoll = false;
+    const fails = {};
+    while (!this.stopPoll && this.connected){
+      for (const p of PIDS){
+        if (this.stopPoll || !this.connected) break;
+        if (this.unsupported.has(p.key)) continue;
+        try{
+          const r = await this.cmd(p.cmd, 2500);
+          const v = p.parse(r);
+          if (!isFinite(v)) throw new Error('bad value');
+          noteValue(p.key, v);
+          fails[p.key] = 0;
+        }catch(e){
+          fails[p.key] = (fails[p.key] || 0) + 1;
+          if (fails[p.key] >= 2) this.unsupported.add(p.key);
+        }
+        await sleep(120);
+      }
+      try{ const v = await this.cmd('ATRV', 2500); const vv = parseFloat(v); if (vv > 0) noteValue('voltage', vv); }catch(e){}
+    }
+  },
+  async dtcRead(){
+    const r = await this.cmd('03', 8000);
+    const h = r.replace(/[^0-9A-F]/g,'');
+    if (!h.startsWith('43')) throw new Error('Unexpected DTC response');
+    const n = parseInt(h.substr(2,2), 16);
+    const codes = [];
+    for (let i = 0; i < n; i++){
+      const b1 = parseInt(h.substr(4+i*4,2), 16), b2 = parseInt(h.substr(6+i*4,2), 16);
+      if (b1 === 0 && b2 === 0) continue;
+      codes.push(decodeDTC(b1,b2));
+    }
+    return codes;
+  },
+  async dtcClear(){ await this.cmd('04', 8000); },
+  async disconnect(){
+    this.stopPoll = true; this.connected = false;
+    this.queue = []; this.pending = null; this.busy = false;
+    try{ if (this.device && this.device.gatt.connected) this.device.gatt.disconnect(); }catch(e){}
+  },
+  onDrop(){
+    this.connected = false; this.stopPoll = true;
+    if (state.mode === 'ble'){
+      state.mode = null;
+      showConnect('Dongle disconnected.');
+    }
+  }
+};
+
+/* ================= UI wiring ================= */
+function setStatus(msg, isErr){
+  const el = $('connStatus');
+  el.textContent = msg || '';
+  el.classList.toggle('err', !!isErr);
+}
+function showDash(){
+  $('screen-connect').hidden = true;
+  $('screen-dash').hidden = false;
+  buildTiles();
+  setSkin(skin);
+  requestWakeLock();
+}
+function showConnect(msg){
+  stopDemo();
+  obd.disconnect();
+  state.mode = null;
+  $('screen-dash').hidden = true;
+  $('screen-connect').hidden = false;
+  document.body.classList.remove('shift','purging');
+  setStatus(msg || '');
+}
+async function requestWakeLock(){
+  try{
+    if ('wakeLock' in navigator){
+      await navigator.wakeLock.request('screen');
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible'){
+          try{ await navigator.wakeLock.request('screen'); }catch(e){}
+        }
+      });
+    }
+  }catch(e){}
+}
+(function initBleSupport(){
+  const ok = 'bluetooth' in navigator;
+  const box = $('bleUnsupported');
+  if (!ok){
+    box.hidden = false;
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    box.innerHTML = ios
+      ? 'This browser has no Bluetooth API. On iPhone, open this page in the free <b>WebBLE</b> app from the App Store — or use demo mode.'
+      : 'This browser has no Bluetooth API. Use <b>Chrome or Edge</b> on Android, Windows, or macOS — or use demo mode.';
+    $('bleBtn').disabled = true;
+  }
+})();
+$('bleBtn').onclick = async () => {
+  setStatus(''); $('bleBtn').disabled = true;
+  try{
+    setStatus('Choose your dongle in the picker…');
+    await obd.connect();
+    state.mode = 'ble';
+    state.session = {max_rpm:0, max_speed_kph:0, start:Date.now()/1000};
+    showDash();
+    obd.pollLoop();
+  }catch(e){
+    const cancelled = /cancelled|chooser|NotFoundError/i.test(e.message || e.name || '');
+    setStatus(cancelled ? 'Picker closed — tap Connect to try again.' : ('Failed: ' + (e.message || e)), !cancelled);
+  }finally{
+    $('bleBtn').disabled = false;
+  }
+};
+$('demoBtn').onclick = () => startDemo();
+$('discBtn').onclick = () => showConnect('Disconnected.');
+$('uSpeed').onclick = () => {
+  units.speed = units.speed === 'mph' ? 'kmh' : 'mph';
+  localStorage.setItem('uSpeed', units.speed);
+  $('uSpeed').textContent = units.speed;
+  render();
+};
+$('uTemp').onclick = () => {
+  units.temp = units.temp === 'F' ? 'C' : 'F';
+  localStorage.setItem('uTemp', units.temp);
+  $('uTemp').textContent = '°' + units.temp;
+  render();
+};
+$('uSpeed').textContent = units.speed;
+$('uTemp').textContent = '°' + units.temp;
+$('uSpeed').classList.add('on'); $('uTemp').classList.add('on');
+const nosBtn = $('nosBtn');
+if (nosBtn) nosBtn.onclick = () => {
+  const p = $('purge');
+  p.classList.remove('go'); void p.offsetWidth; p.classList.add('go');
+  document.body.classList.add('purging');
+  setTimeout(() => document.body.classList.remove('purging'), 1100);
+};
+$('readDtc').onclick = async () => {
+  const box = $('dtcList');
+  if (state.mode !== 'ble' || !obd.connected){
+    box.innerHTML = '<p class="muted">Demo mode — connect a dongle to read real fault codes.</p>';
+    return;
+  }
+  box.innerHTML = '<p class="muted">Reading…</p>';
+  try{
+    const codes = await obd.dtcRead();
+    box.innerHTML = codes.length
+      ? codes.map(c => `<div class="code"><b>${c}</b><span>diagnostic trouble code</span></div>`).join('')
+      : '<p class="muted">No fault codes stored. Clean bill of health.</p>';
+  }catch(e){ box.innerHTML = '<p class="muted">Read failed: ' + (e.message || e) + '</p>'; }
+};
+$('clearDtc').onclick = async () => {
+  const box = $('dtcList');
+  if (state.mode !== 'ble' || !obd.connected){
+    box.innerHTML = '<p class="muted">Demo mode — nothing to clear.</p>';
+    return;
+  }
+  if (!confirm('Clear all stored fault codes? The check-engine light will go out, but the underlying issue (if any) stays.')) return;
+  try{
+    await obd.dtcClear();
+    box.innerHTML = '<p class="muted">Codes cleared.</p>';
+  }catch(e){ box.innerHTML = '<p class="muted">Clear failed: ' + (e.message || e) + '</p>'; }
+};
+/* boot */
+document.body.classList.add('skin-'+skin);
+$('skinClassic').classList.toggle('on', skin==='classic');
+$('skinFf').classList.toggle('on', skin==='ff');
+setInterval(() => { if (!$('screen-dash').hidden) render(); }, 500);
+</script>
+</body>
+</html>
