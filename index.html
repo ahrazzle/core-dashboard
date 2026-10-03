@@ -13,7 +13,7 @@
 <meta name="description" content="Bluetooth OBD-II live telemetry dashboard for your car. Connect a BLE dongle, switch between Classic and Night Runners skins.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CORE // OBD">
-<meta property="og:title" content="CORE // OBD — Bluetooth telemetry dashboard">
+<meta property="og:title" content="CORE // OBD: live Bluetooth car dashboard">
 <meta property="og:description" content="Live gauges, fault codes and telemetry straight from your car's OBD-II port. Two skins: Classic and Night Runners.">
 <meta property="og:url" content="https://core.askaconsult.com/">
 <meta property="og:image" content="https://core.askaconsult.com/og-image.png">
@@ -21,7 +21,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="CORE // OBD neon telemetry dashboard preview">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="CORE // OBD — Bluetooth telemetry dashboard">
+<meta name="twitter:title" content="CORE // OBD: live Bluetooth car dashboard">
 <meta name="twitter:description" content="Live gauges, fault codes and telemetry straight from your car's OBD-II port. Two skins: Classic and Night Runners.">
 <meta name="twitter:image" content="https://core.askaconsult.com/og-image.png">
 <style>
@@ -107,6 +107,13 @@ body.skin-ff .bigbtn{border-radius:0; font-style:italic;
 .conn-needs b{color:var(--dim)}
 .unsupported{background:rgba(229,72,77,.1); border:1px solid rgba(229,72,77,.5); border-radius:10px;
   padding:12px 14px; font-size:13px; color:#f1a3a5; margin-top:14px; text-align:left; line-height:1.6}
+.about-card p{font-size:13px; line-height:1.75; color:var(--dim); margin:0 0 10px}
+.about-card p:last-child{margin-bottom:0}
+.guide-list{margin:6px 0 0 20px; padding:0; font-size:13px; line-height:1.8; color:var(--dim)}
+.guide-list li{margin-bottom:8px}
+.guide-list li:last-child{margin-bottom:0}
+.guide-note{margin-top:14px; font-size:12.5px; line-height:1.7; color:var(--faint)}
+.guide-note b{color:var(--dim)}
 
 /* ============ dashboard ============ */
 #screen-dash{position:relative; z-index:1}
@@ -212,17 +219,33 @@ body.skin-ff footer .ff{color:var(--pink); text-shadow:0 0 8px rgba(255,45,120,.
   <div class="conn-card">
     <h2>Connect to your car</h2>
     <button id="bleBtn" class="bigbtn">Connect Bluetooth dongle</button>
-    <button id="demoBtn" class="bigbtn ghost">Try demo mode — no dongle</button>
+    <button id="demoBtn" class="bigbtn ghost">Try demo mode</button>
     <div id="connStatus"></div>
     <div id="bleUnsupported" class="unsupported" hidden></div>
     <div class="conn-needs">
-      <b>Needs:</b> a <b>BLE</b> OBD-II dongle (e.g. Veepeak BLE+, Vgate iCar Pro BLE).
-      Classic Bluetooth ELM327 dongles can't talk to browsers.<br>
-      <b>Works in:</b> Chrome / Edge on Android, Windows, macOS.<br>
-      <b>iPhone:</b> Safari has no Bluetooth API — open this page in the free
-      <b>WebBLE</b> app instead, or use demo mode.<br>
-      Ignition must be ON (engine can stay off for most readings).
+      <b>Needs:</b> a <b>BLE</b> (Bluetooth 4.0+) OBD-II dongle.
+      Older Bluetooth 2.0 dongles can't talk to web pages.<br>
+      <b>Works in:</b> Chrome / Edge on Android, Windows, macOS.
     </div>
+  </div>
+  <div class="conn-card about-card">
+    <h2>What is CORE?</h2>
+    <p>CORE is a dashboard for your car that runs in a web page. Plug a small Bluetooth adapter into your car's diagnostic port. The page reads the car's live data and shows it as gauges: speed, RPM, temperatures, fuel, and more. It also reads fault codes and can clear them.</p>
+    <p>The diagnostic port is the OBD-II port. Every car sold in the US since 1996 has one, usually under the dash on the driver's side.</p>
+    <p>The page talks to the adapter directly over Bluetooth. Nothing is sent to a server. There is no account and no app to install.</p>
+  </div>
+  <div class="conn-card">
+    <h2>How to use it</h2>
+    <ol class="guide-list">
+      <li>Get a Bluetooth Low Energy adapter. The box must say Bluetooth 4.0 or BLE. Older Bluetooth 2.0 adapters do not work with web pages.</li>
+      <li>Plug it into the OBD-II port under your dash.</li>
+      <li>Turn the ignition on. The engine can stay off for most readings.</li>
+      <li>Open this page in Chrome or Edge on Android, Windows, or Mac.</li>
+      <li>Tap <b>Connect Bluetooth dongle</b> and pick the adapter from the list.</li>
+      <li>Drive. The gauges update live. Tap <b>Read codes</b> to check for fault codes.</li>
+      <li>No adapter? Tap <b>Try demo mode</b> to explore with simulated data.</li>
+    </ol>
+    <p class="guide-note"><b>iPhone:</b> Safari cannot use Bluetooth. Open this page in the free WebBLE app instead, or use demo mode. <b>Looks:</b> switch between Classic and Night Runners with the buttons at the top of the dashboard. The page remembers your choice.</p>
   </div>
 </section>
 
@@ -252,9 +275,9 @@ body.skin-ff footer .ff{color:var(--pink); text-shadow:0 0 8px rgba(255,45,120,.
     <div class="gauge"><canvas id="gSpd" width="560" height="400"></canvas></div>
   </section>
 
-  <button id="nosBtn" class="nos ff-only" title="Screen effect only — does nothing to the car">
+  <button id="nosBtn" class="nos ff-only" title="Screen effect only. Does nothing to the car">
     <span class="nos-main">NOS</span>
-    <span class="nos-sub">PURGE // ニトロ — screen effect only</span>
+    <span class="nos-sub">PURGE // ニトロ (screen effect only)</span>
   </button>
 
   <section class="tiles" id="tiles"></section>
@@ -480,7 +503,7 @@ function startDemo(){
   state.mode = 'demo';
   state.session = {max_rpm:0, max_speed_kph:0, start:Date.now()/1000};
   showDash();
-  setStatus('Demo mode — simulated telemetry.');
+  setStatus('Demo mode. Simulated telemetry.');
   const t0 = Date.now()/1000;
   demoTimer = setInterval(() => {
     const t = Date.now()/1000 - t0, cycle = t % 30;
@@ -567,7 +590,7 @@ const obd = {
         if (n && w) return {write:w, notify:n};
       }catch(e){/* next service */}
     }
-    throw new Error('No serial port found on this device — is it a BLE OBD dongle?');
+    throw new Error('No serial port found on this device. Is it a BLE OBD dongle?');
   },
   onData(e){
     this.buf += new TextDecoder().decode(e.target.value);
@@ -624,7 +647,7 @@ const obd = {
     for (const c of ['ATE0','ATL0','ATS0','ATH0','ATSP0']) await this.cmd(c);
     setStatus('Talking to the car… (ignition must be ON)');
     const r = await this.cmd('0100', 9000);
-    if (!r.startsWith('4100')) throw new Error('ECU not answering — is the ignition on?');
+    if (!r.startsWith('4100')) throw new Error('ECU not answering. Is the ignition on?');
     try{ const v = await this.cmd('ATRV'); const vv = parseFloat(v); if (vv > 0) noteValue('voltage', vv); }catch(e){}
   },
   async pollLoop(){
@@ -718,8 +741,8 @@ async function requestWakeLock(){
     box.hidden = false;
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
     box.innerHTML = ios
-      ? 'This browser has no Bluetooth API. On iPhone, open this page in the free <b>WebBLE</b> app from the App Store — or use demo mode.'
-      : 'This browser has no Bluetooth API. Use <b>Chrome or Edge</b> on Android, Windows, or macOS — or use demo mode.';
+      ? 'This browser has no Bluetooth API. On iPhone, open this page in the free <b>WebBLE</b> app from the App Store. Or use demo mode.'
+      : 'This browser has no Bluetooth API. Use <b>Chrome or Edge</b> on Android, Windows, or macOS. Or use demo mode.';
     $('bleBtn').disabled = true;
   }
 })();
@@ -734,7 +757,7 @@ $('bleBtn').onclick = async () => {
     obd.pollLoop();
   }catch(e){
     const cancelled = /cancelled|chooser|NotFoundError/i.test(e.message || e.name || '');
-    setStatus(cancelled ? 'Picker closed — tap Connect to try again.' : ('Failed: ' + (e.message || e)), !cancelled);
+    setStatus(cancelled ? 'Picker closed. Tap Connect to try again.' : ('Failed: ' + (e.message || e)), !cancelled);
   }finally{
     $('bleBtn').disabled = false;
   }
@@ -766,7 +789,7 @@ if (nosBtn) nosBtn.onclick = () => {
 $('readDtc').onclick = async () => {
   const box = $('dtcList');
   if (state.mode !== 'ble' || !obd.connected){
-    box.innerHTML = '<p class="muted">Demo mode — connect a dongle to read real fault codes.</p>';
+    box.innerHTML = '<p class="muted">Demo mode. Connect a dongle to read real fault codes.</p>';
     return;
   }
   box.innerHTML = '<p class="muted">Reading…</p>';
@@ -780,7 +803,7 @@ $('readDtc').onclick = async () => {
 $('clearDtc').onclick = async () => {
   const box = $('dtcList');
   if (state.mode !== 'ble' || !obd.connected){
-    box.innerHTML = '<p class="muted">Demo mode — nothing to clear.</p>';
+    box.innerHTML = '<p class="muted">Demo mode. Nothing to clear.</p>';
     return;
   }
   if (!confirm('Clear all stored fault codes? The check-engine light will go out, but the underlying issue (if any) stays.')) return;
