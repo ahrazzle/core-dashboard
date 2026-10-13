@@ -50,6 +50,8 @@ og-image.png          share preview image
 ## Tested
 
 - Target car: 2015 Toyota Corolla S
+- `node tests/protocol.mjs` checks fast replies, ECU errors, queued commands,
+  timeouts, write failures, and disconnect cleanup using a simulated adapter.
 - The ELM327 protocol code is unit-tested: sensor parsing, fault code decoding, response cleanup, error detection
 - The live Bluetooth link to a real adapter is not tested yet
 

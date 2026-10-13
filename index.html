@@ -555,7 +555,8 @@ function decodeDTC(b1, b2){
   return t + H((b1 & 0x30) >> 4) + H(b1 & 0x0F) + H((b2 & 0xF0) >> 4) + H(b2 & 0x0F);
 }
 const obd = {
-  device:null, writeChar:null, buf:'', queue:[], busy:false, pending:null,
+  device:null, writeChar:null, notifyChar:null, dataHandler:null, dropHandler:null,
+  buf:'', queue:[], busy:false, pending:null,
   connected:false, unsupported:new Set(), stopPoll:false,
   async connect(){
     const device = await navigator.bluetooth.requestDevice({
@@ -563,12 +564,16 @@ const obd = {
       optionalServices: UART_CANDIDATES.map(c=>c.s)
     });
     this.device = device;
-    device.addEventListener('gattserverdisconnected', () => this.onDrop());
+    this.unsupported.clear();
+    this.dropHandler = () => this.onDrop();
+    device.addEventListener('gattserverdisconnected', this.dropHandler);
     const server = await device.gatt.connect();
     const {write, notify} = await this.findUart(server);
     this.writeChar = write;
+    this.notifyChar = notify;
+    this.dataHandler = e => this.onData(e);
+    notify.addEventListener('characteristicvaluechanged', this.dataHandler);
     await notify.startNotifications();
-    notify.addEventListener('characteristicvaluechanged', e => this.onData(e));
     await this.init();
     this.connected = true;
   },
@@ -599,7 +604,8 @@ const obd = {
       clearTimeout(p.timer);
       const raw = this.buf; this.buf = '';
       this.busy = false;
-      p.resolve(this.clean(raw, p.cmd));
+      try{ p.resolve(this.clean(raw, p.cmd)); }
+      catch(e){ p.reject(e); }
       this.pump();
     }
   },
@@ -622,20 +628,27 @@ const obd = {
     this.busy = true;
     const job = this.queue.shift();
     this.buf = '';
+    // Notifications can arrive before the write promise settles. Arm the
+    // response handler first, and keep its identity so a late write failure
+    // cannot cancel the next queued command.
+    const pending = {resolve:job.resolve, reject:job.reject, cmd:job.str, timer:null};
+    this.pending = pending;
+    pending.timer = setTimeout(() => {
+      if (this.pending !== pending) return;
+      this.pending = null; this.busy = false;
+      job.reject(new Error('timeout waiting for dongle'));
+      this.pump();
+    }, job.timeoutMs);
     try{
       const data = new TextEncoder().encode(job.str + '\r');
       if (this.writeChar.properties.writeWithoutResponse)
         await this.writeChar.writeValueWithoutResponse(data);
       else
         await this.writeChar.writeValueWithResponse(data);
-      const timer = setTimeout(() => {
-        this.pending = null; this.busy = false;
-        job.reject(new Error('timeout waiting for dongle'));
-        this.pump();
-      }, job.timeoutMs);
-      this.pending = {resolve: job.resolve, timer, cmd: job.str};
     }catch(e){
-      this.busy = false;
+      if (this.pending !== pending) return;
+      clearTimeout(pending.timer);
+      this.pending = null; this.busy = false;
       job.reject(e);
       this.pump();
     }
@@ -688,11 +701,23 @@ const obd = {
   async dtcClear(){ await this.cmd('04', 8000); },
   async disconnect(){
     this.stopPoll = true; this.connected = false;
-    this.queue = []; this.pending = null; this.busy = false;
+    const pending = this.pending;
+    this.pending = null; this.busy = false; this.buf = '';
+    if (pending){
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Dongle disconnected.'));
+    }
+    for (const job of this.queue.splice(0)) job.reject(new Error('Dongle disconnected.'));
+    if (this.notifyChar && this.dataHandler)
+      this.notifyChar.removeEventListener('characteristicvaluechanged', this.dataHandler);
+    if (this.device && this.dropHandler)
+      this.device.removeEventListener('gattserverdisconnected', this.dropHandler);
+    this.writeChar = null; this.notifyChar = null;
+    this.dataHandler = null; this.dropHandler = null;
     try{ if (this.device && this.device.gatt.connected) this.device.gatt.disconnect(); }catch(e){}
   },
   onDrop(){
-    this.connected = false; this.stopPoll = true;
+    this.disconnect();
     if (state.mode === 'ble'){
       state.mode = null;
       showConnect('Dongle disconnected.');
@@ -756,6 +781,7 @@ $('bleBtn').onclick = async () => {
     showDash();
     obd.pollLoop();
   }catch(e){
+    await obd.disconnect();
     const cancelled = /cancelled|chooser|NotFoundError/i.test(e.message || e.name || '');
     setStatus(cancelled ? 'Picker closed. Tap Connect to try again.' : ('Failed: ' + (e.message || e)), !cancelled);
   }finally{
